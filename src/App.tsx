@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { InteractionRequiredAuthError, PublicClientApplication, type AccountInfo } from "@azure/msal-browser";
+import type { Session } from "@supabase/supabase-js";
+import { Auth, authClient } from "./Auth";
 import { messages, type Language } from "./translations";
 import { Operations } from "./Operations";
 import { Finance } from "./Finance";
@@ -18,15 +19,10 @@ type Audit = { id: string; actorId: string; action: string; entityType: string; 
 const emptyDetails: Details = { birthDate: null, birthPlace: "", nationality: "", profession: "", address: "",
   emergencyContact: "", qualification: "", licenceNumber: "", licenceExpiresOn: null, insuranceProvider: "", insuranceReference: "" };
 const empty: Draft = { firstName: "", lastName: "", phone: null, email: null, active: true, details: emptyDetails };
-const tenant = import.meta.env.VITE_ENTRA_TENANT_ID as string | undefined;
-const clientId = import.meta.env.VITE_ENTRA_SPA_CLIENT_ID as string | undefined;
-const scope = import.meta.env.VITE_ENTRA_API_SCOPE as string | undefined;
-
 export function App() {
   const [language, setLanguage] = useState<Language>("fr");
   const t = messages[language];
-  const [msal, setMsal] = useState<PublicClientApplication | null>(null);
-  const [account, setAccount] = useState<AccountInfo | null>(null);
+  const [account, setAccount] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -76,40 +72,23 @@ export function App() {
     document.documentElement.lang = language;
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
   }, [language]);
-  useEffect(() => {
-    if (!tenant || !clientId || !scope) return;
-    const client = new PublicClientApplication({
-      auth: { clientId, authority: `https://login.microsoftonline.com/${tenant}`, redirectUri: window.location.origin },
-    });
-    client.initialize().then(() => {
-      setMsal(client);
-      setAccount(client.getAllAccounts()[0] ?? null);
-    }).catch((e: unknown) => { console.error("Authentication initialization failed", e); setError(true); });
-  }, []);
-
   const api = useMemo(() => async <T,>(path: string, init?: RequestInit): Promise<T> => {
-    if (!msal || !account || !scope) throw new Error("Not authenticated");
+    if (!authClient || !account) throw new Error("Not authenticated");
     const form = submittedForm.current;
     submittedForm.current = null;
-    let token;
-    try {
-      token = await msal.acquireTokenSilent({ account, scopes: [scope] });
-    } 
-    catch (e) {
-      if (!(e instanceof InteractionRequiredAuthError)) throw e;
-      token = await msal.acquireTokenPopup({ account, scopes: [scope] });
-    }
+    const { data, error: sessionError } = await authClient.auth.getSession();
+    if (sessionError || !data.session || data.session.user.id !== account.user.id) throw new Error("Session unavailable");
     const response = await fetch(path, {
       ...init,
-      headers: { "Content-Type": "application/json", ...init?.headers, Authorization: `Bearer ${token.accessToken}` },
+      headers: { "Content-Type": "application/json", ...init?.headers, Authorization: `Bearer ${data.session.access_token}` },
     });
     if (!response.ok) throw new Error(`Request failed: ${response.status}`);
     if (form && init?.method && init.method !== "GET") dirtyForms.current.delete(form);
     return response.status === 204 ? undefined as T : await response.json() as T;
-  }, [msal, account]);
+  }, [account]);
 
   useEffect(() => {
-    if (!account || !msal) { setMembers([]); setProfile(null); setAdministrators([]); setAudit([]); setLoaded(false); return; }
+    if (!account) { setMembers([]); setProfile(null); setAdministrators([]); setAudit([]); setLoaded(false); return; }
     let cancelled = false;
     setLoaded(false);
     setBusy(true);
@@ -118,7 +97,7 @@ export function App() {
       .catch((e: unknown) => { console.error("Unable to load members", e); if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setBusy(false); });
     return () => { cancelled = true; };
-  }, [account, msal, api]);
+  }, [account, api]);
 
   useEffect(() => {
     if (profile?.role !== "special_admin") return;
@@ -129,18 +108,14 @@ export function App() {
     return () => { cancelled = true; };
   }, [profile, api, revision]);
 
-  async function signIn() {
-    if (!msal || !scope) return;
-    try {
-      const result = await msal.loginPopup({ scopes: [scope] });
-      setAccount(result.account);
-      setError(false);
-    } catch (e) { console.error("Sign-in failed", e); setError(true); }
-  }
   async function signOut() {
-    if (!msal || !account) return;
+    if (!authClient || !account) return;
     if (hasUnsaved() && !window.confirm(navigationText.unsaved)) return;
-    try { await msal.logoutPopup({ account }); dirtyForms.current.clear(); setDraft(null); setPage("home"); setAccount(null); }
+    try {
+      const { error: signOutError } = await authClient.auth.signOut();
+      if (signOutError) throw signOutError;
+      dirtyForms.current.clear(); setDraft(null); setPage("home"); setAccount(null);
+    }
     catch (e) { console.error("Sign-out failed", e); setError(true); }
   }
   async function save(event: React.FormEvent) {
@@ -197,16 +172,18 @@ export function App() {
       const form = target.closest("form"); if (form) dirtyForms.current.add(form);
     }
   }} onChangeCapture={(event) => {
-    const form = (event.target as HTMLElement).closest("form"); if (form) dirtyForms.current.add(form);
+    const target = event.target as HTMLElement;
+    const form = target.closest("form"); if (form && !target.closest("[data-auth]")) dirtyForms.current.add(form);
   }} onClickCapture={(event) => {
     const button = (event.target as HTMLElement).closest("button");
     const form = button?.closest("form");
-    if (form && button?.type === "button") {
+    if (form && button?.type === "button" && !button.closest("[data-auth]")) {
       if (button.textContent?.trim() === t.cancel) dirtyForms.current.delete(form);
       else dirtyForms.current.add(form);
     }
   }} onSubmitCapture={(event) => {
     const form = event.target as HTMLFormElement;
+    if (form.closest("[data-auth]")) return;
     submittedForm.current = form;
     queueMicrotask(() => { if (submittedForm.current === form) submittedForm.current = null; });
   }}>
@@ -218,10 +195,10 @@ export function App() {
             <option value="fr">Français</option><option value="ar">العربية</option><option value="en">English</option>
           </select>
         </label>
-        {account ? <button onClick={signOut}>{t.signOut}</button> : <button disabled={!msal} onClick={signIn}>{t.signIn}</button>}
+        {account && <button onClick={signOut}>{t.signOut}</button>}
       </div>
     </header>
-    {!tenant || !clientId || !scope ? <p role="alert">{t.configure}</p> : null}
+    <div data-auth hidden={!!account}><Auth language={language} onReady={setAccount} /></div>
     {error && <p role="alert" className="error">{t.failure}</p>}
     {account && loaded && page === "home" && <nav className="main-menu" aria-label={t.navigation}>
       <button onClick={() => navigate("members")}>{t.members}</button>

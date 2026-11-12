@@ -1,6 +1,8 @@
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { newDb } from "pg-mem";
+import request from "supertest";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { createApp } from "../server/app";
 import { createSupabaseAuthenticate } from "../server/supabase-auth";
 
 const issuer = "https://example.supabase.co/auth/v1";
@@ -26,7 +28,7 @@ describe("Supabase authentication boundary", () => {
   });
 
   async function token(overrides: Record<string, unknown> = {}) {
-    return new SignJWT({ role: "authenticated", aal: "aal2", ...overrides })
+    return new SignJWT({ role: "authenticated", aal: "aal2", amr: [{ method: "totp" }], ...overrides })
       .setProtectedHeader({ alg: "ES256", typ: "JWT", kid: "test" })
       .setIssuer(issuer)
       .setAudience("authenticated")
@@ -48,6 +50,7 @@ describe("Supabase authentication boundary", () => {
   it("rejects incomplete MFA and non-user tokens", async () => {
     expect(await authenticate(`Bearer ${await token({ aal: "aal1" })}`)).toBeNull();
     expect(await authenticate(`Bearer ${await token({ role: "service_role" })}`)).toBeNull();
+    expect(await authenticate(`Bearer ${await token({ amr: [{ method: "phone" }] })}`)).toBeNull();
     expect(await authenticate(undefined)).toBeNull();
     expect(await authenticate("Bearer invalid")).toBeNull();
     const symmetric = await new SignJWT({ role: "authenticated", aal: "aal2" })
@@ -57,9 +60,16 @@ describe("Supabase authentication boundary", () => {
     expect(await authenticate(`Bearer ${symmetric}`)).toBeNull();
   });
 
+  it("denies association API requests before MFA and after local revocation", async () => {
+    const app = createApp(pool, authenticate);
+    expect((await request(app).get("/api/members").set("Authorization", `Bearer ${await token({ aal: "aal1" })}`)).status).toBe(401);
+    await pool.query("UPDATE administrators SET active = false");
+    expect((await request(app).get("/api/members").set("Authorization", `Bearer ${await token()}`)).status).toBe(401);
+  });
+
   it("rejects wrong issuer, audience, expiration, type and signature", async () => {
     const make = async (claim: { iss?: string; aud?: string; exp?: number }, typ = "JWT", otherKey = keys.privateKey) =>
-      new SignJWT({ role: "authenticated", aal: "aal2", sub: subject, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 60, iss: issuer, aud: "authenticated", ...claim })
+      new SignJWT({ role: "authenticated", aal: "aal2", amr: [{ method: "totp" }], sub: subject, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 60, iss: issuer, aud: "authenticated", ...claim })
         .setProtectedHeader({ alg: "ES256", typ, kid: "test" }).sign(otherKey);
     const other = await generateKeyPair("ES256");
     for (const invalid of [

@@ -1,6 +1,6 @@
 import { loadConfig } from "./config";
 import { createPool } from "./db";
-import { createAuthenticate } from "./auth";
+import { createSupabaseAuthenticate } from "./supabase-auth";
 import { createApp } from "./app";
 import { createTwilioProvider } from "./whatsapp";
 import express from "express";
@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 
 const config = loadConfig();
 const pool = createPool(config.DATABASE_URL);
-const app = createApp(pool, createAuthenticate(config, pool), createTwilioProvider(process.env));
+const app = createApp(pool, createSupabaseAuthenticate(config.issuer, pool), createTwilioProvider(process.env));
 if (process.env.NODE_ENV === "production") {
   // Register the SPA fallback after API routes so API errors never become HTML responses.
   const dist = resolve("dist");

@@ -6,28 +6,71 @@ registers and loans; goods stock, paid sales and purchases; cash and bank ledger
 individual WhatsApp notifications with consent tracking. Reports support CSV export and
 reference printouts. Passenger health answers are intentionally not stored.
 
-**Deployment status:** This is a locally tested implementation, not a deployed or certified
-production service. Entra authentication, Azure-hosted PostgreSQL, Azure networking,
-backup/restore, the WhatsApp provider, complete translations and association-approved print
-layouts still need integration and operational verification in the intended environment.
+**Deployment status:** This is not a deployed or certified production service. Supabase
+integration, hosted PostgreSQL, backup/restore, WhatsApp delivery and association-approved
+print layouts require operational verification. The planned in-app administrator creation
+and WhatsApp account-setup/reset link delivery are **not implemented**. Do not deploy for
+real users until those workflows and the recovery procedure have been completed and tested.
 The printouts are reference drafts, not completed health declarations or legally validated
 forms. Do not rely on the application for flight-safety clearance.
+
+## Setup and deployment guides
+
+The following official guides complement the app-specific instructions below. Use isolated
+test accounts and fictional data; no deployment or live messages are performed by these
+instructions.
+
+- **Test environment (Render + Neon):** follow Render's
+  [Node/Express deployment guide](https://render.com/docs/deploy-node-express-app),
+  [environment-variable instructions](https://render.com/docs/configure-environment-variables)
+  and [free-instance limitations](https://render.com/docs/free). Create a separate Neon
+  database and obtain its TLS connection string using
+  [Neon's connection guide](https://neon.com/docs/connect/connect-from-any-app). For this
+  app, use `npm ci && npm run build` as the build command, `npm start` as the start command,
+  and set `NODE_ENV=production` and the variables described in
+  [Requirements and local setup](#requirements-and-local-setup). Set both public
+  `VITE_SUPABASE_*` values at build time. Run migrations separately and observe the
+  destructive migration warning below; do not use an existing database without a verified
+  backup and an approved maintenance decision.
+- **Supabase accounts and sign-in:** see
+  [Supabase Auth](https://supabase.com/docs/guides/auth),
+  [administrator user creation](https://supabase.com/docs/reference/javascript/auth-admin-createuser),
+  [JWT signing keys](https://supabase.com/docs/guides/auth/signing-keys),
+  [redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls), and
+  [authenticator-app MFA](https://supabase.com/docs/guides/auth/auth-mfa/totp). Follow
+  [Requirements and local setup](#requirements-and-local-setup) to configure the project
+  and bootstrap the first special administrator. The administrator user-creation API
+  requires a server-side secret; never expose that key in the browser.
+- **WhatsApp:** start with Twilio's
+  [WhatsApp quickstart](https://www.twilio.com/docs/whatsapp/quickstart),
+  [test sandbox](https://www.twilio.com/docs/whatsapp/sandbox) and
+  [template approval guide](https://www.twilio.com/docs/whatsapp/tutorial/send-whatsapp-notification-messages-templates).
+  Then follow [WhatsApp setup and operation](#whatsapp-setup-and-operation) for this app's
+  configuration, consent and manual-dispatch requirements. The sandbox is for testing only;
+  real delivery requires provider setup and must not be initiated without authorization.
 
 ## Requirements and local setup
 
 - Node.js 22.12 or later and npm.
 - PostgreSQL and a database dedicated to this project.
-- A Microsoft Entra tenant, a SPA app registration and a separate API app registration.
-  Configure the API to issue **v2 access tokens**, expose a delegated `access_as_user` scope,
-  authorize the SPA for that scope and grant the necessary consent. Configure the local Vite
-  origin as a SPA redirect URI. Invite guest administrators into this tenant where needed.
-- The tenant object ID of the initial special administrator.
+- A Supabase project with asymmetric JWT signing keys and an email/password provider.
+  Use a separate Supabase project and database for each environment. Disable public signup,
+  enable TOTP enrollment and verification, and disable other sign-in/MFA methods unless
+  reviewed. The API accepts only signed authenticated-user JWTs with AAL2 and a `totp`
+  authentication method; older projects using only legacy HS256 keys must first enable
+  asymmetric signing. Set a short, appropriate JWT lifetime in Supabase; the API verifies
+  tokens locally and provider-side session revocations are not immediate.
+- A manually created, email-confirmed Supabase user for the initial special administrator.
 
-Copy `.env.example` to `.env` and set the database URL, tenant ID, API and SPA client IDs,
-API audiences, delegated scope and initial special administrator object ID.
-`ENTRA_API_AUDIENCES` must contain the actual `aud` value of API access tokens; the Vite
-scope is the full delegated scope URI. The bootstrap ID is the user's object ID in this
-tenant, including for a guest. Never commit `.env` or credentials.
+Copy `.env.example` to `.env`. Set `DATABASE_URL`, the HTTPS project origin in both
+`SUPABASE_URL` and `VITE_SUPABASE_URL`, and the project's public anon/publishable key in
+`VITE_SUPABASE_ANON_KEY`. The two URLs must identify the same project. Never put a
+service-role key in a `VITE_` variable. Never commit `.env` or credentials.
+
+Configure Supabase's Site URL and exact allowed redirect URLs for each environment. Serve
+the app over HTTPS outside local development. Use only a trusted, isolated test project for
+testing; these settings do not disable Supabase signup automatically. Verify signup is
+disabled in its dashboard.
 
 **Before running migrations:** migration `011_flight_sites.sql` irreversibly deletes all
 existing flight activities and their participant and tandem records in every database where
@@ -39,8 +82,17 @@ the reset.
 ```powershell
 npm install
 npm run db:migrate
+npm run admin:bootstrap
 npm run dev:api
 ```
+
+Before `admin:bootstrap`, set `SUPABASE_SERVICE_ROLE_KEY` and
+`BOOTSTRAP_ADMIN_USER_ID` to the server-side service-role key and the UUID of the
+manually created, email-confirmed user in that same project. The command verifies the
+account using Supabase and inserts a special administrator only when the administrators
+table is empty. It never replaces or reactivates an existing administrator; rerunning it
+fails. Remove the bootstrap credential from the app environment afterwards. Migrations do
+not bootstrap users.
 
 In another terminal:
 
@@ -48,16 +100,25 @@ In another terminal:
 npm run dev
 ```
 
-Open the Vite URL and sign in. The special administrator can grant ordinary administrator
-access by tenant object ID, deactivate/reactivate accounts, archive members and view recent
+Open the Vite URL and sign in with email and password. Enroll a TOTP authenticator on first
+use, then enter its six-digit code at each sign-in. The special administrator can grant
+ordinary administrator access by the UUID of an **already created** Supabase user,
+deactivate/reactivate accounts, archive members and view recent
 audit entries. Ordinary administrators cannot perform these actions. No general hard-delete
 endpoint is provided. One special administrator is enforced in the database.
 
-For a production-style local start, set the three `VITE_ENTRA_*` values **before** running
+The current UUID form only authorizes an existing identity; it does not create an account,
+verify a phone, or send setup links. A Supabase user not present and active in the
+association database is denied access even with a valid token. Account setup/reset links
+through Twilio, explicit phone verification and reconciliation of uncertain sends remain
+unimplemented; do not send passwords in WhatsApp. Supabase's default email service has
+restricted delivery and is not a production onboarding solution.
+
+For a production-style local start, set both `VITE_SUPABASE_*` values **before** running
 `npm run build`, then set `NODE_ENV=production` and run `npm start`; the API serves the
 built frontend on `PORT`. The Vite values are public build-time configuration, never secrets.
 Always require HTTPS, use a protected database connection and restrict database/network
-access. Configure an Entra redirect URI matching the actual public application origin.
+access. Configure exact Supabase redirect URLs for the actual public application origin.
 
 ## Using the application
 
@@ -167,7 +228,7 @@ For testing, the intended hosting choice is Render's free web service with Neon'
 PostgreSQL. Both may sleep when idle, and free-tier usage and recovery limits apply; use
 fictional data. For live use, Railway is the intended hosting provider, subject to confirming
 its cost, region, PostgreSQL persistence, backup and restoration, monitoring, HTTPS, secrets
-and Entra redirect URIs. These choices do not deploy resources or replace Entra sign-in.
+and Supabase redirect URLs. No resources are provisioned by this repository.
 Review each provider's current terms and data location before storing real association data.
 
 ## Verification and release checklist
@@ -179,19 +240,21 @@ starts a temporary native PostgreSQL server on loopback and checks concurrent sa
 corrections and receipt numbering over multiple connections. The native test needs a supported
 platform, permission to run PostgreSQL and bind a local port, and a writable temporary directory;
 PostgreSQL cannot run as root. The test stops the server and removes its temporary data.
-These checks do not substitute for testing the actual Entra tenant and Azure environment.
+These checks do not substitute for testing the actual Supabase and hosting environments.
 
-Before deploying, confirm the Azure subscription, region and budget; configure App Service,
-managed PostgreSQL, secure network access, secret storage, monitoring, Entra MFA and least
-privilege. The database migration is transactional and should be run as a separate,
-controlled deployment step. Azure PostgreSQL provides automated backups and point-in-time
-recovery; configure retention and practice restoration to a separate server. Review and test
-the administrator recovery procedure, data retention and applicable Moroccan privacy rules.
-The bootstrap operation does not reactivate an existing account; changing the bootstrap ID
-does not automatically transfer the special role. Role recovery requires an authorized
-database administrator and a reviewed, audited procedure.
+Before deployment, complete the missing onboarding flow; verify project isolation, signup
+settings, MFA and HTTPS; configure database TLS, secure network access, secret storage,
+monitoring and tested backups. Run migrations as a separate controlled step and follow the
+destructive migration warning above. Review data retention and applicable privacy rules.
+For lost credentials or an authenticator, a trusted Supabase project operator must verify
+identity out of band and use the provider's administrative recovery controls. Disable
+association access while resolving the incident, revoke sessions, remove the lost factor
+through provider administration if appropriate, restore access and require new TOTP
+enrollment. The special administrator is protected from app-side disablement; its recovery
+requires an authorized database operator and an independently reviewed, audited procedure.
+Test this procedure before relying on it.
 
-Production tests remain necessary for real token issuance, tenant guests, Azure deployment,
+Production tests remain necessary for real token issuance, Supabase deployment,
 concurrency under the intended production workload, backups/restoration, provider
 delivery/callbacks, responsive accessibility and all translated print layouts. No live
 messages, cloud resources or external account changes are created by the local tests.

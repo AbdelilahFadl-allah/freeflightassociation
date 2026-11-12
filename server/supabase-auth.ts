@@ -7,6 +7,7 @@ const userClaims = z.object({
   sub: z.string().uuid(),
   role: z.literal("authenticated"),
   aal: z.literal("aal2"),
+  amr: z.array(z.object({ method: z.string() })).refine((entries) => entries.some((entry) => entry.method === "totp")),
 });
 
 export function createSupabaseAuthenticate(
@@ -24,7 +25,7 @@ export function createSupabaseAuthenticate(
         audience: "authenticated",
         typ: "JWT",
         algorithms: ["ES256", "RS256"],
-        requiredClaims: ["exp", "iat", "sub", "role", "aal"],
+        requiredClaims: ["exp", "iat", "sub", "role", "aal", "amr"],
       }));
     } catch (error) {
       if (error instanceof errors.JWTClaimValidationFailed ||

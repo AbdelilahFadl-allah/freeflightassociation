@@ -1,11 +1,10 @@
 import "dotenv/config";
 import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { loadConfig } from "./config";
 import { createPool } from "./db";
 
-const config = loadConfig();
-const pool = createPool(config.DATABASE_URL);
+if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+const pool = createPool(process.env.DATABASE_URL);
 const client = await pool.connect();
 try {
   await client.query("BEGIN");
@@ -15,10 +14,6 @@ try {
   for (const file of files) {
     await client.query(await readFile(new URL(`./migrations/${file}`, import.meta.url), "utf8"));
   }
-  await client.query(
-    "INSERT INTO administrators (object_id, role) VALUES ($1, 'special_admin') ON CONFLICT (object_id) DO NOTHING",
-    [config.BOOTSTRAP_ADMIN_OBJECT_ID],
-  );
   await client.query("COMMIT");
   console.log("Foundation migration applied.");
 } catch (error) {

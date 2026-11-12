@@ -5,8 +5,7 @@ import { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../server/app";
-import { createAuthenticate } from "../server/auth";
-import { loadConfig } from "../server/config";
+import { createSupabaseAuthenticate } from "../server/supabase-auth";
 import { generateKeyPair, SignJWT } from "jose";
 
 describe("API against embedded PostgreSQL", () => {
@@ -63,32 +62,15 @@ describe("API against embedded PostgreSQL", () => {
     expect(balances.find((a: { id: string }) => a.id === "bank").balanceCents).toBe(1500);
   }, 30000);
 
-  it("verifies signatures, expiry, tenant, audience, delegated scope and admin membership", async () => {
-    const tenant = "00000000-0000-4000-8000-000000000099";
-    const apiId = "00000000-0000-4000-8000-000000000098";
-    const config = loadConfig({
-      DATABASE_URL: "postgresql://test:test@localhost/test", ENTRA_TENANT_ID: tenant,
-      ENTRA_API_CLIENT_ID: apiId, ENTRA_API_AUDIENCES: apiId, BOOTSTRAP_ADMIN_OBJECT_ID: actor,
-    });
+  it("verifies Supabase JWTs against PostgreSQL administrator access", async () => {
+    const issuer = "https://example.supabase.co/auth/v1";
     const keys = await generateKeyPair("RS256");
-    const authenticate = createAuthenticate(config, pool, async () => keys.publicKey);
-    const claims = { oid: actor, tid: tenant, scp: "access_as_user" };
-    const token = (payload: Record<string, string>, audience = apiId, expires = "1h") =>
-      new SignJWT(payload).setProtectedHeader({ alg: "RS256" }).setIssuer(`https://login.microsoftonline.com/${tenant}/v2.0`)
-        .setAudience(audience).setIssuedAt().setExpirationTime(expires).sign(keys.privateKey);
-    expect(await authenticate(`Bearer ${await token(claims)}`)).toEqual({ objectId: actor, role: "admin" });
-    expect(await authenticate(`Bearer ${await token(claims, "wrong")}`)).toBeNull();
-    expect(await authenticate(`Bearer ${await token(claims, apiId, "-1s")}`)).toBeNull();
-    expect(await authenticate(`Bearer ${await token({ ...claims, scp: "other" })}`)).toBeNull();
-    expect(await authenticate(`Bearer ${await token({ ...claims, tid: "00000000-0000-4000-8000-000000000097" })}`)).toBeNull();
-    expect(await authenticate(`Bearer ${await token({ ...claims, oid: "00000000-0000-4000-8000-000000000002" })}`)).toBeNull();
-    const otherKey = await generateKeyPair("RS256");
-    const forged = await new SignJWT(claims).setProtectedHeader({ alg: "RS256" }).setIssuer(`https://login.microsoftonline.com/${tenant}/v2.0`)
-      .setAudience(apiId).setIssuedAt().setExpirationTime("1h").sign(otherKey.privateKey);
-    expect(await authenticate(`Bearer ${forged}`)).toBeNull();
-    const noExpiry = await new SignJWT(claims).setProtectedHeader({ alg: "RS256" }).setIssuer(`https://login.microsoftonline.com/${tenant}/v2.0`)
-      .setAudience(apiId).setIssuedAt().sign(keys.privateKey);
-    expect(await authenticate(`Bearer ${noExpiry}`)).toBeNull();
+    const authenticate = createSupabaseAuthenticate(issuer, pool, async () => keys.publicKey);
+    const token = (aal: string) => new SignJWT({ role: "authenticated", aal, amr: [{ method: "totp" }] })
+      .setProtectedHeader({ alg: "RS256", typ: "JWT" }).setIssuer(issuer).setSubject(actor)
+      .setAudience("authenticated").setIssuedAt().setExpirationTime("1h").sign(keys.privateKey);
+    expect(await authenticate(`Bearer ${await token("aal2")}`)).toEqual({ objectId: actor, role: "admin" });
+    expect(await authenticate(`Bearer ${await token("aal1")}`)).toBeNull();
   }, 30000);
 
   it("atomically reverses and replaces a sale, rolling back a failed correction", async () => {
