@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+coverage/
+
+# Root-level reference images and documents, not application assets.
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
+/*.bmp
+/*.tif
+/*.tiff
+/*.svg
+/*.heic
+/*.heif
+/*.avif
+/*.ico
+/*.pdf
