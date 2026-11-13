@@ -125,11 +125,17 @@ export function Auth({ language, onReady }: Props) {
     {session && !recovery && <div>
       <h2>{t.mfa}</h2>
       {!factor && !qr && <button disabled={busy} onClick={() => void run(async () => {
-        const result = await authClient.auth.mfa.enroll({ factorType: "totp" });
+        const existing = await authClient.auth.mfa.listFactors();
+        if (existing.error) throw existing.error;
+        for (const stale of existing.data.all.filter((item) => item.factor_type === "totp" && item.status === "unverified")) {
+          const removed = await authClient.auth.mfa.unenroll({ factorId: stale.id });
+          if (removed.error) throw removed.error;
+        }
+        const result = await authClient.auth.mfa.enroll({ factorType: "totp", issuer: "Vol'ubilis", friendlyName: "Vol'ubilis" });
         if (result.error) throw result.error;
         setFactor(result.data.id); setQr(result.data.totp.qr_code);
       })}>{t.setup}</button>}
-      {qr && <div><p>{t.scan}</p><img alt={t.setup} src={qr} /></div>}
+      {qr && <div className="qr"><p>{t.scan}</p><img alt={t.setup} src={qr} /></div>}
       {factor && <form className="form" onSubmit={(event) => {
         event.preventDefault();
         void run(async () => {

@@ -16,6 +16,8 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .member-list li { margin: .5rem 0; padding: 1rem; background: #fff; border-radius: .5rem; }
 .member-list button { margin-inline-start: .5rem; }
 .error { color: #a32020; }
+.form > .qr { display: block; grid-column: 1 / -1; }
+.qr img { display: block; width: 220px; max-width: 100%; height: auto; background: #fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .form fieldset { grid-column: 1 / -1; border: 1px solid #c8d6cb; border-radius: .35rem; }
 .inline-fields { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; margin-block: .5rem; }
