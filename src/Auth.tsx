@@ -1,30 +1,13 @@
 import { useEffect, useState } from "react";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import type { Language } from "./translations";
+import { text } from "./i18n/auth";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 export const authClient: SupabaseClient | null = url && key
   ? createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } })
   : null;
-
-const text = {
-  en: { email: "Email", password: "Password", signIn: "Sign in", configure: "Supabase sign-in is not configured.",
-    failure: "Authentication failed. Check your details or contact the special administrator.",
-    mfa: "Authenticator verification", setup: "Set up an authenticator", scan: "Scan this code in your authenticator app.",
-    code: "Six-digit code", verify: "Verify", recovery: "Choose a new password", save: "Set password",
-    logout: "Sign out", wait: "Checking session...", recoveryHelp: "For lost credentials or your authenticator, contact the special administrator." },
-  fr: { email: "Adresse e-mail", password: "Mot de passe", signIn: "Se connecter", configure: "La connexion Supabase n’est pas configurée.",
-    failure: "Échec de l’authentification. Vérifiez vos informations ou contactez l’administrateur spécial.",
-    mfa: "Vérification par application d’authentification", setup: "Configurer une application d’authentification", scan: "Scannez ce code avec votre application d’authentification.",
-    code: "Code à six chiffres", verify: "Vérifier", recovery: "Choisir un nouveau mot de passe", save: "Enregistrer le mot de passe",
-    logout: "Se déconnecter", wait: "Vérification de la session…", recoveryHelp: "En cas de perte du mot de passe ou de l’application, contactez l’administrateur spécial." },
-  ar: { email: "البريد الإلكتروني", password: "كلمة المرور", signIn: "تسجيل الدخول", configure: "لم يتم إعداد تسجيل الدخول عبر Supabase.",
-    failure: "تعذرت المصادقة. تحقق من معلوماتك أو اتصل بالمسؤول الخاص.",
-    mfa: "التحقق باستخدام تطبيق المصادقة", setup: "إعداد تطبيق المصادقة", scan: "امسح هذا الرمز باستخدام تطبيق المصادقة.",
-    code: "رمز من ستة أرقام", verify: "تحقق", recovery: "اختر كلمة مرور جديدة", save: "حفظ كلمة المرور",
-    logout: "تسجيل الخروج", wait: "جارٍ التحقق من الجلسة…", recoveryHelp: "عند فقدان كلمة المرور أو تطبيق المصادقة، اتصل بالمسؤول الخاص." },
-};
 
 type Props = { language: Language; onReady: (session: Session | null) => void };
 export function Auth({ language, onReady }: Props) {
@@ -95,7 +78,7 @@ export function Auth({ language, onReady }: Props) {
 
   if (!authClient) return <p role="alert">{t.configure}</p>;
   if (checking) return <p>{t.wait}</p>;
-  return <section className="form">
+  return <section className="form auth">
     {error && <p role="alert" className="error">{t.failure}</p>}
     {!session && <form className="form" onSubmit={(event) => {
       event.preventDefault();

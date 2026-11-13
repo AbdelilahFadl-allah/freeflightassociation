@@ -173,7 +173,7 @@ export function App() {
     }
   }} onChangeCapture={(event) => {
     const target = event.target as HTMLElement;
-    const form = target.closest("form"); if (form && !target.closest("[data-auth]")) dirtyForms.current.add(form);
+    const form = target.closest("form"); if (form && !target.closest("[data-auth], [data-map-layer]")) dirtyForms.current.add(form);
   }} onClickCapture={(event) => {
     const button = (event.target as HTMLElement).closest("button");
     const form = button?.closest("form");
@@ -233,8 +233,9 @@ export function App() {
       {busy && <p>{t.loading}</p>}
       {!busy && loaded && !members.length && <p>{t.empty}</p>}
       <ul className="member-list">{members.map((member) => <li key={member.id}>
-        <div><strong><bdi>{member.firstName} {member.lastName}</bdi></strong> <span>{member.active ? t.active : t.inactive}</span>
-          <div dir="auto">{member.phone} {member.email}</div></div>
+        <div><div><strong>{t.firstName}:</strong> <bdi>{member.firstName}</bdi> · <strong>{t.lastName}:</strong> <bdi>{member.lastName}</bdi></div>
+          <div><strong>{t.status}:</strong> {member.active ? t.active : t.inactive}</div>
+          <div><strong>{t.phone}:</strong> <bdi>{member.phone ?? "—"}</bdi> · <strong>{t.email}:</strong> <bdi>{member.email ?? "—"}</bdi></div></div>
         <div><button onClick={() => { const { id, ...values } = member; setEditing(id); setDraft({ ...values, details: { ...emptyDetails, ...values.details } }); }}>{t.edit}</button>
           {profile?.role === "special_admin" && <button disabled={busy} onClick={() => archive(member.id)}>{t.archive}</button>}</div>
       </li>)}</ul>
@@ -246,7 +247,7 @@ export function App() {
           <div><button disabled={busy} type="submit">{t.addAdmin}</button></div>
         </form>
         <ul className="member-list">{administrators.map((administrator) => <li key={administrator.objectId}>
-          <div><bdi>{administrator.objectId}</bdi> — {administrator.role === "special_admin" ? t.protectedAdmin : administrator.active ? t.active : t.inactive}</div>
+          <div><strong>{t.objectId}:</strong> <bdi>{administrator.objectId}</bdi> · <strong>{t.status}:</strong> {administrator.role === "special_admin" ? t.protectedAdmin : administrator.active ? t.active : t.inactive}</div>
           {administrator.role === "admin" && <button disabled={busy} onClick={() => setAdministrator(administrator.objectId, !administrator.active)}>
             {administrator.active ? t.disable : t.enable}
           </button>}

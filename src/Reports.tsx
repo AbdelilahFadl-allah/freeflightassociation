@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { messages, type Language } from "./translations";
+import { text } from "./i18n/reports";
 
 type Api = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Member = { id: string; firstName: string; lastName: string; phone: string | null; email: string | null; active: boolean;
@@ -13,36 +14,6 @@ type Operation = { id: string; kind: string; businessDate: string; description: 
 type Receipt = { number: string; operationId: string; businessDate: string; description: string; counterparty: string; paymentMethod: string; amountCents: number; accountId: string };
 type Row = { id: string; date: string; values: string[] };
 type Kind = "members" | "flights" | "gear" | "loans" | "products" | "ledger" | "receipts";
-const text = {
-  en: { title: "Reports and exports", members: "Members", flights: "Flights", gear: "Equipment", loans: "Loans", products: "Goods", ledger: "Ledger", receipts: "Receipts",
-    search: "Search", from: "From date", to: "To date", refresh: "Refresh", export: "Download CSV", print: "Print", error: "Could not load reports.",
-    draft: "Reference printout — check the association's approved forms and legal wording before use.",
-    columns: ["Name", "Contact", "Status", "Date", "Site / item", "Details", "Amount", "Number", "Counterparty", "Method"],
-    active: "Active", inactive: "Inactive", returned: "Returned", open: "Open", yes: "Yes", no: "No",
-    form: "Passenger paper form completed", notes: "Notes", pilot: "Pilot", passenger: "Passenger", duration: "Duration (minutes)", condition: "Condition",
-    signatures: "Signatures", reversed: "Reversed", original: "Original",
-    roles: { pilot: "Pilot", passenger: "Passenger", coordinator: "Coordinator", driver: "Driver" },
-    types: { income: "Income", expense: "Expense", sale: "Sale", purchase: "Purchase", transfer: "Transfer", reversal: "Reversal", cash: "Cash", bank: "Bank" } },
-  fr: { title: "Rapports et exports", members: "Membres", flights: "Vols", gear: "Matériel", loans: "Prêts", products: "Marchandises", ledger: "Journal", receipts: "Reçus",
-    search: "Rechercher", from: "Date de début", to: "Date de fin", refresh: "Actualiser", export: "Télécharger CSV", print: "Imprimer", error: "Impossible de charger les rapports.",
-    draft: "Impression de référence — vérifier les formulaires et mentions juridiques approuvés par l'association avant utilisation.",
-    columns: ["Nom", "Contact", "Statut", "Date", "Site / article", "Détails", "Montant", "Numéro", "Tiers", "Mode"],
-    active: "Actif", inactive: "Inactif", returned: "Retourné", open: "En cours", yes: "Oui", no: "Non",
-    form: "Fiche papier du passager remplie", notes: "Observations", pilot: "Pilote", passenger: "Passager", duration: "Durée (minutes)", condition: "État",
-    signatures: "Signatures", reversed: "Contrepassé", original: "Original",
-    roles: { pilot: "Pilote", passenger: "Passager", coordinator: "Coordinateur", driver: "Chauffeur" },
-    types: { income: "Recette", expense: "Dépense", sale: "Vente", purchase: "Achat", transfer: "Virement interne", reversal: "Contrepassation", cash: "Caisse", bank: "Banque" } },
-  ar: { title: "التقارير والتصدير", members: "الأعضاء", flights: "الرحلات", gear: "المعدات", loans: "الإعارات", products: "البضائع", ledger: "السجل المالي", receipts: "الوصولات",
-    search: "بحث", from: "من تاريخ", to: "إلى تاريخ", refresh: "تحديث", export: "تنزيل CSV", print: "طباعة", error: "تعذر تحميل التقارير.",
-    draft: "نسخة مرجعية للطباعة — يجب التحقق من نماذج الجمعية وصيغها القانونية المعتمدة قبل الاستعمال.",
-    columns: ["الاسم", "الاتصال", "الحالة", "التاريخ", "الموقع / الصنف", "التفاصيل", "المبلغ", "الرقم", "الطرف الآخر", "الطريقة"],
-    active: "نشط", inactive: "غير نشط", returned: "تم الإرجاع", open: "جارية", yes: "نعم", no: "لا",
-    form: "تم ملء استمارة الراكب الورقية", notes: "ملاحظات", pilot: "الطيار", passenger: "الراكب", duration: "المدة بالدقائق", condition: "الحالة",
-    signatures: "التوقيعات", reversed: "تم العكس", original: "أصلي",
-    roles: { pilot: "الطيار", passenger: "الراكب", coordinator: "المنسق", driver: "السائق" },
-    types: { income: "إيراد", expense: "مصروف", sale: "بيع", purchase: "شراء", transfer: "تحويل داخلي", reversal: "عملية عكس", cash: "الصندوق", bank: "البنك" } },
-} as const;
-
 export function csvCell(value: string) {
   // Prevent spreadsheet applications from executing exported text as a formula.
   const safe = /^[\s\u0000-\u001f]*[=+\-@]/.test(value) ? `'${value}` : value;

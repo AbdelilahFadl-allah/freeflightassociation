@@ -164,12 +164,14 @@ access. Configure exact Supabase redirect URLs for the actual public application
   The reference printouts must be checked against the original annexes and approved by the
   association before operational use.
 
-The map uses the open-source Leaflet library and online OpenStreetMap community tiles with
-attribution. Internet access is required for tiles, and tile requests disclose the browser's
-IP address and viewed map area to the tile service. Coordinate entry remains available if
-tiles fail. The public tile service is not an unlimited production SLA: comply with its
-[tile usage policy](https://operations.osmfoundation.org/policies/tiles/) and use a suitable
-tile provider for heavier or production use. Map coordinates and polygons are planning aids,
+The map uses the open-source Leaflet library and online OpenStreetMap community tiles by
+default. The map layer selector also offers OpenTopoMap terrain tiles, including contours
+and shaded relief; attribution is shown on the map. Internet access is required, and tile
+requests disclose the browser's IP address and viewed map area to the selected tile service.
+Coordinate entry remains available if tiles fail. The public tile services do not offer an
+unlimited production SLA: comply with the [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
+and [OpenTopoMap usage terms](https://opentopomap.org/about), and use a suitable provider for
+heavier or production use. Map coordinates and polygons are planning aids,
 not a substitute for on-site assessment.
 
 Before applying the site-validation migration to a non-disposable database, take and verify a

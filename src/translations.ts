@@ -2,7 +2,7 @@
 export const messages = {
   en: {
     title: "Vol'ubilis Vol Libre", members: "Members", signIn: "Sign in", signOut: "Sign out",
-    firstName: "First name", lastName: "Last name", phone: "Phone", email: "Email", active: "Active",
+    firstName: "First name", lastName: "Last name", phone: "Phone", email: "Email", status: "Status", active: "Active",
     inactive: "Inactive", save: "Save member", cancel: "Cancel", edit: "Edit", archive: "Archive",
     create: "Add member", configure: "Sign-in is not configured. Contact your administrator.",
     failure: "The operation could not be confirmed. Check the records before retrying or contact your administrator.",
@@ -20,7 +20,7 @@ export const messages = {
   },
   fr: {
     title: "Vol'ubilis Vol Libre", members: "Membres", signIn: "Se connecter", signOut: "Se déconnecter",
-    firstName: "Prénom", lastName: "Nom", phone: "Téléphone", email: "E-mail", active: "Actif",
+    firstName: "Prénom", lastName: "Nom", phone: "Téléphone", email: "E-mail", status: "Statut", active: "Actif",
     inactive: "Inactif", save: "Enregistrer", cancel: "Annuler", edit: "Modifier", archive: "Archiver",
     create: "Ajouter un membre", configure: "La connexion n'est pas configurée. Contactez votre administrateur.",
     failure: "L'opération n'a pas pu être confirmée. Vérifiez les enregistrements avant de réessayer ou contactez votre administrateur.",
@@ -38,7 +38,7 @@ export const messages = {
   },
   ar: {
     title: "جمعية وليلي للطيران الحر", members: "الأعضاء", signIn: "تسجيل الدخول", signOut: "تسجيل الخروج",
-    firstName: "الاسم الشخصي", lastName: "الاسم العائلي", phone: "الهاتف", email: "البريد الإلكتروني", active: "نشط",
+    firstName: "الاسم الشخصي", lastName: "الاسم العائلي", phone: "الهاتف", email: "البريد الإلكتروني", status: "الحالة", active: "نشط",
     inactive: "غير نشط", save: "حفظ العضو", cancel: "إلغاء", edit: "تعديل", archive: "أرشفة",
     create: "إضافة عضو", configure: "لم يتم إعداد تسجيل الدخول. يرجى الاتصال بالمسؤول.",
     failure: "تعذر تأكيد العملية. تحقق من السجلات قبل إعادة المحاولة أو اتصل بالمسؤول.",

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Language } from "./translations";
+import { translations } from "./i18n/finance";
 
 type Api = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Product = { id: string; name: string; quantity: number };
@@ -7,38 +8,6 @@ type Account = { id: "cash" | "bank"; balanceCents: number; openingSet: boolean 
 type Operation = { id: string; kind: string; businessDate: string; description: string; counterparty: string; paymentMethod: string; reversesId: string | null; entries: { accountId: string; amountCents: number }[] };
 type StockMovement = { id: string; name: string; quantity: number; businessDate: string; reason: string; operationId: string | null };
 type Line = { productId: string; quantity: string; price: string };
-const translations = {
-  en: { title: "Goods and finances", products: "Goods stock", name: "Product", initial: "Opening quantity", date: "Date", addProduct: "Add product",
-    adjust: "Stock adjustment", change: "Quantity change (+ or −)", reason: "Reason", save: "Save", account: "Account",
-    cash: "Cash", bank: "Bank", kind: "Type", income: "Income", expense: "Expense", sale: "Sale", purchase: "Purchase",
-    transfer: "Transfer", from: "From", to: "To", description: "Description", counterparty: "Counterparty",
-    payment: "Payment method", amount: "Amount (MAD)", quantity: "Quantity", price: "Unit price (MAD)",
-    addLine: "Add line", remove: "Remove", ledger: "Ledger", reverse: "Reverse", reversal: "Reversal",
-    reverseDate: "Reversal date", failed: "The operation could not be confirmed. Check the ledger and stock before retrying.", refreshFailed: "The operation was saved, but the display could not refresh. Do not repeat it; reload the page.",
-    choose: "Choose", active: "Save transaction", reversed: "Reversed", selectProduct: "Select product",
-    correct: "Correct", correction: "Correcting transaction: enter complete replacement details", cancel: "Cancel correction", correctionDate: "Reversal date", correctionReason: "Correction reason",
-    opening: "Set opening balance once before recording transactions", openingAmount: "Opening balance (MAD)", openingNote: "Opening balance description", movements: "Stock movement history", openingStock: "Opening stock" },
-  fr: { title: "Marchandises et finances", products: "Stock de marchandises", name: "Produit", initial: "Stock initial", date: "Date", addProduct: "Ajouter le produit",
-    adjust: "Ajustement de stock", change: "Variation de quantité (+ ou −)", reason: "Motif", save: "Enregistrer", account: "Compte",
-    cash: "Caisse", bank: "Banque", kind: "Type", income: "Recette", expense: "Dépense", sale: "Vente", purchase: "Achat",
-    transfer: "Virement interne", from: "De", to: "Vers", description: "Libellé", counterparty: "Tiers",
-    payment: "Mode de paiement", amount: "Montant (MAD)", quantity: "Quantité", price: "Prix unitaire (MAD)",
-    addLine: "Ajouter une ligne", remove: "Retirer", ledger: "Journal", reverse: "Contrepasser", reversal: "Contrepassation",
-    reverseDate: "Date de contrepassation", failed: "L'opération n'a pas pu être confirmée. Vérifiez le journal et le stock avant de réessayer.", refreshFailed: "L'opération a été enregistrée mais l'affichage n'a pas pu être actualisé. Ne la répétez pas ; rechargez la page.",
-    choose: "Choisir", active: "Enregistrer l'opération", reversed: "Contrepassé", selectProduct: "Choisir un produit",
-    correct: "Corriger", correction: "Correction de l'opération : saisir tous les détails de remplacement", cancel: "Annuler la correction", correctionDate: "Date de contrepassation", correctionReason: "Motif de correction",
-    opening: "Définir une seule fois le solde initial avant les opérations", openingAmount: "Solde initial (MAD)", openingNote: "Description du solde initial", movements: "Historique des mouvements de stock", openingStock: "Stock initial" },
-  ar: { title: "البضائع والمالية", products: "مخزون البضائع", name: "المنتج", initial: "المخزون الأولي", date: "التاريخ", addProduct: "إضافة منتج",
-    adjust: "تعديل المخزون", change: "تغير الكمية (+ أو −)", reason: "السبب", save: "حفظ", account: "الحساب",
-    cash: "الصندوق", bank: "البنك", kind: "النوع", income: "إيراد", expense: "مصروف", sale: "بيع", purchase: "شراء",
-    transfer: "تحويل داخلي", from: "من", to: "إلى", description: "البيان", counterparty: "الطرف الآخر",
-    payment: "طريقة الدفع", amount: "المبلغ (درهم)", quantity: "الكمية", price: "سعر الوحدة (درهم)",
-    addLine: "إضافة سطر", remove: "إزالة", ledger: "السجل المالي", reverse: "عكس العملية", reversal: "عملية عكس",
-    reverseDate: "تاريخ العكس", failed: "تعذر تأكيد العملية. تحقق من السجل والمخزون قبل إعادة المحاولة.", refreshFailed: "تم حفظ العملية لكن تعذر تحديث العرض. لا تكررها؛ أعد تحميل الصفحة.",
-    choose: "اختر", active: "تسجيل العملية", reversed: "تم العكس", selectProduct: "اختر منتجاً",
-    correct: "تصحيح", correction: "تصحيح العملية: أدخل تفاصيل العملية البديلة كاملة", cancel: "إلغاء التصحيح", correctionDate: "تاريخ العكس", correctionReason: "سبب التصحيح",
-    opening: "حدد الرصيد الافتتاحي مرة واحدة قبل تسجيل العمليات", openingAmount: "الرصيد الافتتاحي (درهم)", openingNote: "وصف الرصيد الافتتاحي", movements: "سجل حركات المخزون", openingStock: "المخزون الافتتاحي" },
-} as const;
 function cents(value: string) {
   // Convert the entered decimal string directly to integer cents without floating-point rounding.
   if (!/^\d{1,6}(?:[.,]\d{1,2})?$/.test(value)) throw new Error("Invalid monetary amount");
@@ -123,10 +92,10 @@ export function Finance({ api, language, onChange }: { api: Api; language: Langu
       <label>{t.date}<input required type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       <div><button disabled={busy}>{t.addProduct}</button></div>
     </form>
-    <ul className="member-list">{products.map((p) => <li key={p.id}>{p.name} — {p.quantity}</li>)}</ul>
+    <ul className="member-list">{products.map((p) => <li key={p.id}><div><strong>{t.name}:</strong> <bdi>{p.name}</bdi> · <strong>{t.quantity}:</strong> {p.quantity}</div></li>)}</ul>
     <details><summary>{t.movements}</summary><ul className="member-list">{movements.map((m) => <li key={m.id}>
-      <div>{String(m.businessDate).slice(0, 10)} — {m.name} — <bdi>{m.quantity > 0 ? "+" : ""}{m.quantity}</bdi> — {m.reason === "opening" ? t.openingStock : t[m.reason as "sale" | "purchase" | "reversal"] ?? m.reason}
-        {m.operationId && <div><bdi>{m.operationId}</bdi></div>}</div>
+      <div><strong>{t.date}:</strong> {String(m.businessDate).slice(0, 10)} · <strong>{t.name}:</strong> <bdi>{m.name}</bdi> · <strong>{t.change}:</strong> <bdi>{m.quantity > 0 ? "+" : ""}{m.quantity}</bdi> · <strong>{t.reason}:</strong> {m.reason === "opening" ? t.openingStock : t[m.reason as "sale" | "purchase" | "reversal"] ?? m.reason}
+        {m.operationId && <div className="record-related"><strong>{t.operationId}:</strong> <bdi>{m.operationId}</bdi></div>}</div>
     </li>)}</ul></details>
     <form className="form" onSubmit={(e) => { e.preventDefault(); void submit(`/api/products/${selected}/adjustments`, () => ({ quantity: Number(change), businessDate: date, reason }), () => { setChange(""); setReason(""); }); }}>
       <label>{t.adjust}<select required value={selected} onChange={(e) => setSelected(e.target.value)}><option value="">{t.selectProduct}</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
@@ -175,8 +144,10 @@ export function Finance({ api, language, onChange }: { api: Api; language: Langu
     </form>
     <h3>{t.ledger}</h3>
     <ul className="member-list">{operations.map((o) => <li key={o.id}><div>
-      <strong>{o.description}</strong> — {t[o.kind as "income" | "expense" | "sale" | "purchase" | "transfer" | "reversal"] ?? o.kind} — {String(o.businessDate).slice(0, 10)} {o.entries.map((entry) => <span key={entry.accountId}> · {t[entry.accountId as "cash" | "bank"] ?? entry.accountId}: <bdi>{money(entry.amountCents)}</bdi></span>)}
-      {(o.counterparty || o.paymentMethod) && <div>{t.counterparty}: {o.counterparty || "—"} · {t.payment}: {o.paymentMethod || "—"}</div>}
+      <div><strong>{t.description}:</strong> {o.description}</div>
+      <div><strong>{t.kind}:</strong> {t[o.kind as "income" | "expense" | "sale" | "purchase" | "transfer" | "reversal"] ?? o.kind} · <strong>{t.date}:</strong> {String(o.businessDate).slice(0, 10)}</div>
+      {o.entries.map((entry) => <div className="record-related" key={entry.accountId}><strong>{t.account}:</strong> {t[entry.accountId as "cash" | "bank"] ?? entry.accountId} · <strong>{t.amount}:</strong> <bdi>{money(entry.amountCents)}</bdi></div>)}
+      {(o.counterparty || o.paymentMethod) && <div><strong>{t.counterparty}:</strong> {o.counterparty || "—"} · <strong>{t.payment}:</strong> {o.paymentMethod || "—"}</div>}
       {o.kind !== "reversal" && !operations.some((r) => r.reversesId === o.id) && <form className="inline-fields" onSubmit={(e) => {
         e.preventDefault();
         void submit(`/api/finance/${o.id}/reverse`, () => ({ businessDate: reversals[o.id]?.date, reason: reversals[o.id]?.reason }), () => setReversals((old) => { const n = { ...old }; delete n[o.id]; return n; }));

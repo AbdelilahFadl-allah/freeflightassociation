@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Language } from "./translations";
+import { flightText, text } from "./i18n/operations";
 
 type Api = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Participant = { id: string; memberId: string | null; name: string; role: "pilot" | "passenger" | "coordinator" | "driver" };
@@ -8,50 +9,9 @@ type Site = { id: string; name: string; status: "open" | "closed" | "maintenance
 type Equipment = { id: string; identifier: string; designation: string; condition: string; makeModel: string; sizeRating: string; acquiredOn: string | null; lastInspectionOn: string | null; reserveRepackedOn: string | null };
 type Loan = { id: string; identifier: string; borrowerName: string; loanedOn: string; returnedOn: string | null; conditionOut: string; conditionIn: string | null };
 
-const text = {
-  en: { flights: "Flight activities", gear: "Flying equipment", loans: "Equipment loans", site: "Site",
-    date: "Local date and time", offset: "Casablanca UTC offset on this date", notes: "Notes", participants: "Participants",
-    addPerson: "Add participant", name: "Name", role: "Role", pilot: "Pilot", passenger: "Passenger",
-    coordinator: "Coordinator", driver: "Driver", remove: "Remove", save: "Save", identifier: "Identifier",
-    designation: "Designation", condition: "Condition", model: "Make / model", size: "Size / load rating",
-    acquired: "Acquisition date", inspection: "Last inspection", repack: "Last reserve repack",
-    borrower: "Borrower", loaned: "Loan date", expected: "Expected return", returnDate: "Return date",
-    returnCondition: "Condition on return", return: "Record return", loading: "Loading…",
-    failed: "The operation could not be confirmed. Check the records before retrying.", refreshFailed: "The operation was saved, but the display could not refresh. Do not repeat it; reload the page.", noRecords: "No records yet.",
-    tandem: "Tandem flights", addTandem: "Add tandem flight", duration: "Duration (minutes)", form: "Passenger paper form completed",
-    receipt: "Receipt reference", choose: "Choose", print: "Print", edit: "Edit", cancel: "Cancel", member: "Association member (optional)", nonmember: "Not linked to a member", },
-  fr: { flights: "Activités de vol", gear: "Matériel de vol", loans: "Prêts de matériel", site: "Site",
-    date: "Date et heure locales", offset: "Décalage UTC de Casablanca à cette date", notes: "Observations", participants: "Participants",
-    addPerson: "Ajouter un participant", name: "Nom", role: "Rôle", pilot: "Pilote", passenger: "Passager",
-    coordinator: "Coordinateur", driver: "Chauffeur", remove: "Retirer", save: "Enregistrer", identifier: "Identifiant",
-    designation: "Désignation", condition: "État", model: "Marque / modèle", size: "Taille / charge",
-    acquired: "Date d'acquisition", inspection: "Dernier contrôle", repack: "Dernier repliage du secours",
-    borrower: "Emprunteur", loaned: "Date de prêt", expected: "Retour prévu", returnDate: "Date de retour",
-    returnCondition: "État au retour", return: "Enregistrer le retour", loading: "Chargement…",
-    failed: "L'opération n'a pas pu être confirmée. Vérifiez les enregistrements avant de réessayer.", refreshFailed: "L'opération a été enregistrée mais l'affichage n'a pas pu être actualisé. Ne la répétez pas ; rechargez la page.", noRecords: "Aucun enregistrement.",
-    tandem: "Vols biplaces", addTandem: "Ajouter un vol biplace", duration: "Durée (minutes)", form: "Fiche papier du passager remplie",
-    receipt: "Référence du reçu", choose: "Choisir", print: "Imprimer", edit: "Modifier", cancel: "Annuler", member: "Membre de l'association (facultatif)", nonmember: "Non lié à un membre", },
-  ar: { flights: "أنشطة الطيران", gear: "معدات الطيران", loans: "إعارة المعدات", site: "الموقع",
-    date: "التاريخ والوقت المحلي", offset: "فرق توقيت الدار البيضاء عن UTC في هذا التاريخ", notes: "ملاحظات", participants: "المشاركون",
-    addPerson: "إضافة مشارك", name: "الاسم", role: "الدور", pilot: "الطيار", passenger: "الراكب",
-    coordinator: "المنسق", driver: "السائق", remove: "إزالة", save: "حفظ", identifier: "المعرّف",
-    designation: "التسمية", condition: "الحالة", model: "العلامة والطراز", size: "المقاس / الحمولة",
-    acquired: "تاريخ الاقتناء", inspection: "آخر فحص", repack: "آخر طي للمظلة الاحتياطية",
-    borrower: "المستعير", loaned: "تاريخ الإعارة", expected: "تاريخ الإرجاع المتوقع", returnDate: "تاريخ الإرجاع",
-    returnCondition: "الحالة عند الإرجاع", return: "تسجيل الإرجاع", loading: "جار التحميل…",
-    failed: "تعذر تأكيد العملية. تحقق من السجلات قبل إعادة المحاولة.", refreshFailed: "تم حفظ العملية لكن تعذر تحديث العرض. لا تكررها؛ أعد تحميل الصفحة.", noRecords: "لا توجد سجلات.",
-    tandem: "الرحلات الثنائية", addTandem: "إضافة رحلة ثنائية", duration: "المدة بالدقائق", form: "تم ملء استمارة الراكب الورقية",
-    receipt: "مرجع الوصل", choose: "اختر", print: "طباعة", edit: "تعديل", cancel: "إلغاء", member: "عضو في الجمعية (اختياري)", nonmember: "غير مرتبط بعضو", },
-} as const;
 type Tandem = { pilotId: string; passengerId: string; durationMinutes: number | null; passengerFormCompleted: boolean; receiptReference: string | null; observations: string };
 const initEquipment = { identifier: "", designation: "", makeModel: "", sizeRating: "", acquiredOn: null as string | null,
   lastInspectionOn: null as string | null, reserveRepackedOn: null as string | null, condition: "" };
-const flightText = {
-  en: { status: "Status", planned: "Planned", done: "Done", cancelled: "Cancelled", append: "Add note", archive: "Archive", confirm: "Archive this equipment?", eligible: "Only open, validated sites can be selected." },
-  fr: { status: "Statut", planned: "Planifié", done: "Effectué", cancelled: "Annulé", append: "Ajouter une note", archive: "Archiver", confirm: "Archiver ce matériel ?", eligible: "Seuls les sites ouverts et validés peuvent être sélectionnés." },
-  ar: { status: "الحالة", planned: "مخطط", done: "مكتمل", cancelled: "ملغى", append: "إضافة ملاحظة", archive: "أرشفة", confirm: "أرشفة هذه المعدات؟", eligible: "يمكن اختيار المواقع المفتوحة والمتحقق منها فقط." },
-} as const;
-
 export function Operations({ api, language, members, onChange, specialAdmin }: { api: Api; language: Language; members: { id: string; firstName: string; lastName: string }[]; onChange: () => void; specialAdmin: boolean }) {
   const t = text[language];
   const ft = flightText[language];
@@ -158,11 +118,13 @@ export function Operations({ api, language, members, onChange, specialAdmin }: {
       <div><button disabled={busy}>{t.save}</button>{editingFlight && <button type="button" onClick={() => { setEditingFlight(null); setSite(""); setLocalDate(""); setNotes(""); setPeople([]); setTandems([]); }}>{t.cancel}</button>}</div>
     </form>
     <ul className="member-list">{flights.map((f) => <li key={f.id}><div>
-      <strong>{f.site}</strong> — {ft[f.status]} — {new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Casablanca" }).format(new Date(f.startsAt))}
-      <div>{f.participants.map((p) => `${t[p.role]}: ${p.name}`).join(" · ")}</div>
-      {f.tandemFlights.map((pair, i) => <div key={i}>{t.tandem}: {f.participants.find((p) => p.id === pair.pilotId)?.name} / {f.participants.find((p) => p.id === pair.passengerId)?.name} · {t.duration}: {pair.durationMinutes ?? "—"} · {t.form}: {pair.passengerFormCompleted ? "✓" : "—"}</div>)}
-      <div>{f.notes}</div>
-      {f.additionalNotes.map((note) => <div key={note.id}>{new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Casablanca" }).format(new Date(note.createdAt))}: {note.body}</div>)}
+      <div><strong>{t.site}:</strong> <bdi>{f.site}</bdi></div>
+      <div><strong>{ft.status}:</strong> {ft[f.status]}</div>
+      <div><strong>{t.date}:</strong> {new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Casablanca" }).format(new Date(f.startsAt))}</div>
+      <div><strong>{t.participants}:</strong>{f.participants.map((p) => <div className="record-related" key={p.id}><strong>{t.role}:</strong> {t[p.role]} · <strong>{t.name}:</strong> <bdi>{p.name}</bdi></div>)}</div>
+      {f.tandemFlights.length > 0 && <div><strong>{t.tandem}:</strong>{f.tandemFlights.map((pair, i) => <div className="record-related" key={i}><strong>{t.pilot}:</strong> <bdi>{f.participants.find((p) => p.id === pair.pilotId)?.name}</bdi> · <strong>{t.passenger}:</strong> <bdi>{f.participants.find((p) => p.id === pair.passengerId)?.name}</bdi> · <strong>{t.duration}:</strong> {pair.durationMinutes ?? "—"} · <strong>{t.form}:</strong> {pair.passengerFormCompleted ? "✓" : "—"}</div>)}</div>}
+      <div><strong>{t.notes}:</strong> {f.notes}</div>
+      {f.additionalNotes.map((note) => <div className="record-related" key={note.id}><strong>{t.date}:</strong> {new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Casablanca" }).format(new Date(note.createdAt))} · <strong>{t.notes}:</strong> {note.body}</div>)}
       {f.status !== "planned" && <form onSubmit={(event) => { event.preventDefault(); void submit(`/api/flights/${f.id}/notes`, { body: extraNotes[f.id] }, () => setExtraNotes({ ...extraNotes, [f.id]: "" })); }}>
         <label>{ft.append}<input required maxLength={4000} value={extraNotes[f.id] ?? ""} onChange={(e) => setExtraNotes({ ...extraNotes, [f.id]: e.target.value })} /></label>
         <button disabled={busy}>{ft.append}</button></form>}
@@ -186,9 +148,13 @@ export function Operations({ api, language, members, onChange, specialAdmin }: {
         <input type="date" value={gear[field] ?? ""} onChange={(e) => setGear({ ...gear, [field]: e.target.value || null })} /></label>)}
       <div><button disabled={busy}>{t.save}</button>{editingGear && <button type="button" onClick={() => { setGear(initEquipment); setEditingGear(null); }}>{t.cancel}</button>}</div>
     </form>
-    <ul className="member-list">{equipment.map((item) => <li key={item.id}>{item.identifier} — {item.designation} — {item.condition}
+    <ul className="member-list">{equipment.map((item) => <li key={item.id}><div>
+      <div><strong>{t.identifier}:</strong> <bdi>{item.identifier}</bdi></div>
+      <div><strong>{t.designation}:</strong> <bdi>{item.designation}</bdi></div>
+      <div><strong>{t.condition}:</strong> {item.condition}</div></div>
+      <div>
       <button onClick={() => { setEditingGear(item.id); setGear({ identifier: item.identifier, designation: item.designation, makeModel: item.makeModel, sizeRating: item.sizeRating, condition: item.condition, acquiredOn: dateValue(item.acquiredOn) || null, lastInspectionOn: dateValue(item.lastInspectionOn) || null, reserveRepackedOn: dateValue(item.reserveRepackedOn) || null }); }}>{t.edit}</button>
-      {specialAdmin && <button disabled={busy} onClick={() => { if (window.confirm(ft.confirm)) void submit(`/api/equipment/${item.id}/archive`, {}, () => {}); }}>{ft.archive}</button>}
+      {specialAdmin && <button disabled={busy} onClick={() => { if (window.confirm(ft.confirm)) void submit(`/api/equipment/${item.id}/archive`, {}, () => {}); }}>{ft.archive}</button>}</div>
     </li>)}</ul>
     <h2>{t.loans}</h2>
     <form className="form" onSubmit={(e) => { e.preventDefault(); void submit("/api/loans", loan, () => setLoan({ equipmentId: "", borrowerName: "", memberId: null, loanedOn: "", expectedReturnOn: null, conditionOut: "" })); }}>
@@ -205,8 +171,10 @@ export function Operations({ api, language, members, onChange, specialAdmin }: {
       <div><button disabled={busy}>{t.save}</button></div>
     </form>
     <ul className="member-list">{loans.map((item) => <li key={item.id}><div>
-      <strong>{item.identifier} — {item.borrowerName}</strong> · {dateValue(item.loanedOn)}
-      {item.returnedOn && <div>{t.returnDate}: {dateValue(item.returnedOn)} — {item.conditionIn}</div>}
+      <div><strong>{t.identifier}:</strong> <bdi>{item.identifier}</bdi></div>
+      <div><strong>{t.borrower}:</strong> <bdi>{item.borrowerName}</bdi></div>
+      <div><strong>{t.loaned}:</strong> {dateValue(item.loanedOn)}</div>
+      {item.returnedOn && <div className="record-related"><strong>{t.returnDate}:</strong> {dateValue(item.returnedOn)} · <strong>{t.returnCondition}:</strong> {item.conditionIn}</div>}
       {!item.returnedOn && <form className="inline-fields" onSubmit={(e) => { e.preventDefault(); void submit(`/api/loans/${item.id}/return`, returns[item.id], () => setReturns((r) => { const copy = { ...r }; delete copy[item.id]; return copy; })); }}>
         <label>{t.returnDate}<input required type="date" value={returns[item.id]?.returnedOn ?? ""} onChange={(e) => setReturns({ ...returns, [item.id]: { returnedOn: e.target.value, conditionIn: returns[item.id]?.conditionIn ?? "" } })} /></label>
         <label>{t.returnCondition}<input required value={returns[item.id]?.conditionIn ?? ""} onChange={(e) => setReturns({ ...returns, [item.id]: { returnedOn: returns[item.id]?.returnedOn ?? "", conditionIn: e.target.value } })} /></label>
